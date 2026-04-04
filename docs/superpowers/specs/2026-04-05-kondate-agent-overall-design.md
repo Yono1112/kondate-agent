@@ -16,6 +16,7 @@
 - 栄養バランスの考慮
 - 優先度（栄養/手軽さ/コスト/バリエーション）をいつでも変更可能
 - 家族構成・好み・アレルギーの設定対応
+- レシート写真から自動で食材在庫を更新（LINE経由で画像送信）
 
 ### 動作モード
 
@@ -99,6 +100,9 @@ inventory (id, name, quantity, unit, expiry_date, purchased_at, created_at, upda
 -- 食事記録
 meals (id, date, meal_type, dish_name, ingredients, notes, created_at)
 
+-- 購入履歴（レシートから取り込み）※Phase 2
+purchases (id, store_name, item_name, price, quantity, unit, purchased_at, receipt_image_url, created_at)
+
 -- ユーザー設定（優先度、家族構成、好み、アレルギー等）
 preferences (id, key, value, updated_at)
 
@@ -135,6 +139,7 @@ flyers (id, store, item_name, price, original_price, valid_from, valid_until)
 | `manage_preferences` | ユーザー設定の取得・更新 | Phase 1 |
 | `suggest_menu` | 在庫・履歴・設定を総合して献立コンテキストを取得 | Phase 1 |
 | `send_line` | LINEにプッシュメッセージ送信 | Phase 2 |
+| `parse_receipt` | レシート画像を解析し食材リストを抽出、在庫を自動更新 | Phase 2 |
 | `search_recipes_sql` | 条件でレシピ検索（食材・時間・カテゴリ） | Phase 3 |
 | `search_recipes_rag` | 曖昧なリクエストでレシピ検索（ベクトル検索） | Phase 3 |
 | `search_flyers` | チラシからお買い得情報を検索（Web検索ベース） | Phase 4 |
@@ -179,7 +184,43 @@ Mastra Workflowのcronトリガーで実現。
 
 ---
 
-## 8. スーパー情報の取得（Phase 4）
+## 8. レシート読み取り（Phase 2）
+
+### フロー
+
+```
+ユーザーがLINEでレシート写真を送信
+    ↓
+LINE Webhook で画像を受信
+    ↓
+Gemini 3 Flash（マルチモーダル）でレシート画像を解析
+    ↓
+食材リストを抽出（品名・価格・数量）
+    ↓
+在庫テーブル（inventory）に自動追加 + 購入履歴（purchases）に記録
+    ↓
+「在庫に追加しました」と確認メッセージをLINEに返信
+```
+
+### parse_receipt ツール詳細
+
+- **入力:** レシート画像（URL or Base64）
+- **処理:** Gemini 3 Flashのマルチモーダル機能でレシート画像を解析し、品名・価格・数量を構造化データとして抽出
+- **出力:** 抽出された食材リスト + 在庫更新結果
+- 食材でないもの（袋代、ポイント等）はフィルタリング
+- 曖昧な品名（「ムネ」→「鶏むね肉」等）はLLMが補完
+- 抽出結果をユーザーに確認してから在庫に反映するか、自動反映するかはユーザー設定で制御
+
+### 購入履歴の活用
+
+- 月間の食費集計に利用
+- 「いつもどこで何を買っているか」の傾向把握
+- Phase 4のスーパー提案の精度向上に活用
+
+---
+
+## 9. スーパー情報の取得（Phase 4）
+
 
 ### 方式
 
@@ -196,7 +237,7 @@ Mastra Workflowのcronトリガーで実現。
 
 ---
 
-## 9. エージェントのプロンプト設計
+## 10. エージェントのプロンプト設計
 
 ### 基本指示
 
@@ -219,7 +260,7 @@ Mastra Workflowのcronトリガーで実現。
 
 ---
 
-## 10. 開発フェーズ
+## 11. 開発フェーズ
 
 ### Phase 1: 最小プロトタイプ
 
@@ -229,11 +270,13 @@ Mastra Workflowのcronトリガーで実現。
 - Mastra Studioでテスト
 - **詳細:** `2026-04-05-kondate-agent-phase1-design.md` 参照
 
-### Phase 2: LINE連携
+### Phase 2: LINE連携 + レシート読み取り
 
-- LINE Messaging API設定（Webhook + Push）
+- LINE Messaging API設定（Webhook + Push + 画像受信）
 - Mastra HTTPサーバーとの接続
 - send_lineツール実装
+- parse_receiptツール実装（レシート画像 → Gemini 3 Flashで解析 → 食材リスト抽出 → 在庫自動更新 + 購入履歴記録）
+- purchasesテーブル作成
 - 対話モードの完成
 - デプロイ（Vercel / Cloudflare）
 
