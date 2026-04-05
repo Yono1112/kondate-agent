@@ -40,7 +40,7 @@ export const kondateAgent = new Agent({
 - ユーザーが食材を買ったと言ったら manage-inventory で在庫に追加する
 - 食事を記録する際は record-meal を使い、在庫が自動的に減る
 - 消費期限が近い食材がある場合は積極的に使うメニューを提案する`,
-  model: 'google/gemini-3-flash-preview',
+  model: 'zai/glm-4.7-flash',
   tools: {
     manageInventoryTool,
     checkExpiryTool,
