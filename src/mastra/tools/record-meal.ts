@@ -29,7 +29,7 @@ export const recordMealTool = createTool({
     meal_id: z.string(),
   }),
   execute: async ({ date, meal_type, dish_name, ingredients, notes }) => {
-    const id = `meal-${Date.now()}`;
+    const id = `meal-${crypto.randomUUID()}`;
 
     await db.execute({
       sql: `INSERT INTO meals (id, date, meal_type, dish_name, ingredients, notes) VALUES (?, ?, ?, ?, ?, ?)`,

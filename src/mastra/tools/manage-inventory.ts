@@ -44,7 +44,7 @@ export const manageInventoryTool = createTool({
           inventory: [],
         };
       }
-      const id = `inv-${Date.now()}`;
+      const id = `inv-${crypto.randomUUID()}`;
       const today = new Date().toISOString().split('T')[0];
       await db.execute({
         sql: `INSERT INTO inventory (id, name, quantity, unit, expiry_date, purchased_at) VALUES (?, ?, ?, ?, ?, ?)`,
