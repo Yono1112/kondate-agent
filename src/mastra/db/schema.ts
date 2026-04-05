@@ -29,5 +29,17 @@ export async function initializeDatabase(): Promise<void> {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS purchases (
+      id TEXT PRIMARY KEY,
+      store_name TEXT,
+      item_name TEXT NOT NULL,
+      price INTEGER,
+      quantity REAL,
+      unit TEXT,
+      purchased_at TEXT NOT NULL,
+      receipt_image_url TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
