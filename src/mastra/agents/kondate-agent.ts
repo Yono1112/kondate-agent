@@ -6,6 +6,8 @@ import { recordMealTool } from '../tools/record-meal.js';
 import { searchMealsTool } from '../tools/search-meals.js';
 import { managePreferencesTool } from '../tools/manage-preferences.js';
 import { suggestMenuTool } from '../tools/suggest-menu.js';
+import { sendLineTool } from '../tools/send-line.js';
+import { parseReceiptTool } from '../tools/parse-receipt.js';
 
 export const kondateAgent = new Agent({
   id: 'kondate-agent',
@@ -39,7 +41,11 @@ export const kondateAgent = new Agent({
 ## 食材管理
 - ユーザーが食材を買ったと言ったら manage-inventory で在庫に追加する
 - 食事を記録する際は record-meal を使い、在庫が自動的に減る
-- 消費期限が近い食材がある場合は積極的に使うメニューを提案する`,
+- 消費期限が近い食材がある場合は積極的に使うメニューを提案する
+
+## LINE連携
+- レシート画像のURLが提供されたときは parse-receipt ツールを使って解析する
+- エージェントから能動的にメッセージを送りたいときは send-line ツールを使う`,
   model: 'zai/glm-4.7-flash',
   tools: {
     manageInventoryTool,
@@ -48,6 +54,8 @@ export const kondateAgent = new Agent({
     searchMealsTool,
     managePreferencesTool,
     suggestMenuTool,
+    sendLineTool,
+    parseReceiptTool,
   },
   memory: new Memory(),
 });
