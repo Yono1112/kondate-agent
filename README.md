@@ -15,11 +15,19 @@ Mastra Studio上で動作する自炊アシスタントエージェント。
 - 食事記録（記録・履歴検索・在庫自動減算）
 - ユーザー設定管理（優先度・家族構成・アレルギー・苦手な食材）
 
+### Phase 2: LINE連携 (完了)
+
+LINE Messaging APIを通じて、スマホから直接エージェントと対話できる。
+
+- LINEでのテキスト対話（reply API使用 → 月200通制限の対象外）
+- レシート画像送信 → Vision LLM(Zhipu GLM-5V-Turbo)で解析 → 在庫・購入履歴に自動反映
+- send-line ツールによるエージェントからの能動通知（push API）
+- Webhook処理は背景化されており長時間処理でもLINE側のタイムアウトを発生させない
+
 ### 今後のフェーズ
 
 | フェーズ | 内容 | 状態 |
 |---------|------|------|
-| Phase 2 | LINE連携 | 未着手 |
 | Phase 3 | YouTuberレシピ取り込み・RAG検索 | 未着手 |
 | Phase 4 | 自律実行・cron・チラシ情報 | 未着手 |
 
@@ -28,7 +36,8 @@ Mastra Studio上で動作する自炊アシスタントエージェント。
 ### 前提条件
 
 - Node.js >= 22.13.0
-- Google AI Studio の API キー（[取得はこちら](https://aistudio.google.com/apikey)）
+- [Z.AI (Zhipu)](https://bigmodel.cn/) の API キー（GLM-5 / GLM-5V-Turbo を利用）
+- LINE連携を使う場合: [LINE Developers Console](https://developers.line.biz/) でMessaging APIチャンネルを作成
 
 ### インストール
 
@@ -38,10 +47,16 @@ npm install
 
 ### 環境変数
 
-`.env` ファイルをプロジェクトルートに作成:
+`.env.example` を参考に `.env` を作成:
 
 ```
-GOOGLE_GENERATIVE_AI_API_KEY=your-api-key
+# LLM
+ZAI_API_KEY=your-zai-api-key
+
+# LINE Messaging API（Phase 2以降）
+LINE_CHANNEL_ACCESS_TOKEN=your-channel-access-token
+LINE_CHANNEL_SECRET=your-channel-secret
+LINE_USER_ID=your-line-user-id
 ```
 
 ### 起動
@@ -52,40 +67,59 @@ npm run dev
 
 ブラウザで http://localhost:4111 を開くと Mastra Studio が起動します。「自炊アシスタント」エージェントとチャットできます。
 
+### LINEから利用する（Phase 2）
+
+1. [LINE Developers Console](https://developers.line.biz/) でMessaging APIチャンネルを作成し、Channel secret / Access token を取得して `.env` に設定
+2. 公開URLを用意（ローカル開発時は cloudflared / ngrok 等のトンネル）
+
+   ```bash
+   cloudflared tunnel --url http://localhost:4111
+   ```
+
+3. LINE Developers Console の Webhook URL に `https://<tunnel-domain>/webhooks/line` を設定し、「Webhookの利用」をオン
+4. LINE Official Account Manager で「応答メッセージ」をオフ、「Webhook」をオン（応答モードは Bot）
+5. LINEアプリでBotを友だち追加し、メッセージやレシート画像を送信
+
 ## アーキテクチャ
 
 ```
-Mastra Studio (localhost:4111)
-        │
-   Mastra Agent
-  「自炊アシスタント」(Gemini 3 Flash)
-        │
-   ┌────┼────┐
-   ↓    ↓    ↓
- ツール群  Mastra Memory（会話履歴）
-   │
-   ↓
- LibSQL (ローカルファイルDB)
+LINEアプリ ──webhook──┐         ┌── Mastra Studio (localhost:4111)
+                     ↓         ↓
+              Mastra API server (Hono)
+                     │
+              Mastra Agent
+            「自炊アシスタント」(Z.AI GLM-5)
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+    ツール群     Mastra Memory     receipt-parser sub-agent
+        │       （会話履歴）         (Z.AI GLM-5V-Turbo)
+        ↓
+   LibSQL (ローカルファイルDB)
 ```
 
 ## プロジェクト構成
 
 ```
 src/mastra/
-├── index.ts                    # Mastraエントリポイント
+├── index.ts                    # Mastraエントリポイント (LINE webhook登録含む)
 ├── agents/
 │   └── kondate-agent.ts        # 自炊アシスタントエージェント
 ├── db/
 │   ├── client.ts               # LibSQLクライアント
-│   ├── schema.ts               # テーブル定義 (inventory, meals, preferences)
+│   ├── schema.ts               # テーブル定義 (inventory, meals, preferences, purchases)
 │   └── seed.ts                 # 初期データ投入
-└── tools/
-    ├── manage-inventory.ts     # 食材在庫管理 (追加/更新/削除/一覧)
-    ├── check-expiry.ts         # 消費期限チェック
-    ├── record-meal.ts          # 食事記録 (在庫自動減算)
-    ├── search-meals.ts         # 食事履歴検索
-    ├── manage-preferences.ts   # ユーザー設定管理
-    └── suggest-menu.ts         # 献立コンテキスト取得
+├── tools/
+│   ├── manage-inventory.ts     # 食材在庫管理 (追加/更新/削除/一覧)
+│   ├── check-expiry.ts         # 消費期限チェック
+│   ├── record-meal.ts          # 食事記録 (在庫自動減算)
+│   ├── search-meals.ts         # 食事履歴検索
+│   ├── manage-preferences.ts   # ユーザー設定管理
+│   ├── suggest-menu.ts         # 献立コンテキスト取得
+│   ├── send-line.ts            # LINE Push API送信
+│   └── parse-receipt.ts        # レシート画像解析 → 在庫/購入履歴更新
+└── webhooks/
+    └── line-webhook.ts         # LINE Messaging API Webhook
 ```
 
 ## ツール一覧
@@ -98,6 +132,8 @@ src/mastra/
 | `search-meals` | 期間・キーワードによる食事履歴検索 |
 | `manage-preferences` | ユーザー設定の取得・更新（優先度・アレルギー等） |
 | `suggest-menu` | 在庫・履歴・設定・期限情報を集約し、エージェントが献立を提案するためのコンテキストを提供 |
+| `send-line` | LINE Push APIでユーザーに能動的にメッセージを送信 |
+| `parse-receipt` | レシート画像をVision LLMで解析し、食材を在庫・購入履歴に自動追加 |
 
 ## 使い方の例
 
@@ -126,7 +162,9 @@ npm run start   # ビルド済みサーバー起動
 ## 技術スタック
 
 - [Mastra](https://mastra.ai/) (`@mastra/core` v1.21+) — AIエージェントフレームワーク
-- [Gemini 3 Flash](https://ai.google.dev/) — LLMモデル
+- [Z.AI GLM-5 / GLM-5V-Turbo](https://bigmodel.cn/) — メイン/Vision LLM
+- [@line/bot-sdk](https://github.com/line/line-bot-sdk-nodejs) — LINE Messaging API
 - [LibSQL](https://github.com/tursodatabase/libsql) — ローカルファイルDB
 - [Zod](https://zod.dev/) v4 — スキーマバリデーション
+- [Vitest](https://vitest.dev/) — ユニットテスト
 - TypeScript (ES2022)
