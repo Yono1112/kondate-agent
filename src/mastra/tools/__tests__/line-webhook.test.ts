@@ -15,9 +15,8 @@ const { mockValidateSignature, mockReplyMessage, mockPushMessage, MockMessagingA
   });
 
 vi.mock('@line/bot-sdk', () => ({
-  webhook: {
-    validateSignature: mockValidateSignature,
-  },
+  validateSignature: mockValidateSignature,
+  webhook: {},
   messagingApi: {
     MessagingApiClient: MockMessagingApiClient,
   },
