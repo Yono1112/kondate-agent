@@ -46,7 +46,7 @@ export const kondateAgent = new Agent({
 ## LINE連携
 - レシート画像のURLが提供されたときは parse-receipt ツールを使って解析する
 - エージェントから能動的にメッセージを送りたいときは send-line ツールを使う`,
-  model: 'zai/glm-4.7-flash',
+  model: 'zai/glm-5',
   tools: {
     manageInventoryTool,
     checkExpiryTool,
