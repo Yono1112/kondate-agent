@@ -26,8 +26,8 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
       const mastra = c.get('mastra');
       const agent = mastra.getAgent('kondateAgent');
 
-      // イベントを並列処理
-      await Promise.all(
+      // LINEには即座に200を返し、処理は背景で行う（webhookタイムアウト回避）
+      const processEvents = Promise.all(
         body.events.map(async (event) => {
           if (event.type !== 'message') return;
           if (!('source' in event) || !event.source?.userId) return;
@@ -128,6 +128,11 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
           }
         }),
       );
+
+      // バックグラウンドで処理を継続（エラーはログに残す）
+      processEvents.catch((e) => {
+        console.error('[line-webhook] background processing error:', e);
+      });
 
       return c.json({ status: 'ok' });
     } catch (err) {
