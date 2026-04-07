@@ -1,19 +1,35 @@
 import { createTool } from '@mastra/core/tools';
+import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import { db } from '../db/client.js';
-import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
 
-const receiptItemSchema = z.object({
-  item_name: z.string().describe('食材名（曖昧な場合は正式名称に補完）'),
-  price: z.number().nullable().describe('価格（税込み円）。不明な場合はnull'),
-  quantity: z.number().describe('数量'),
-  unit: z.string().describe('単位（個, g, ml, 本, パック等）'),
-  is_food: z.boolean().describe('食材かどうか（袋代・ポイント等はfalse）'),
+const receiptParserAgent = new Agent({
+  id: 'receipt-parser',
+  name: 'レシート解析エージェント',
+  instructions:
+    'あなたはレシート画像から食材リストを抽出する専門エージェントです。指定されたスキーマに従って構造化データを返してください。',
+  model: 'zhipuai/glm-5v-turbo',
 });
 
+const receiptItemSchema = z
+  .object({
+    item_name: z.string().optional().describe('食材名'),
+    name: z.string().optional().describe('食材名（item_nameの別名）'),
+    price: z.number().nullable().optional().describe('価格（税込み円）'),
+    quantity: z.number().optional().default(1).describe('数量'),
+    unit: z.string().optional().default('個').describe('単位'),
+    is_food: z.boolean().optional().default(true).describe('食材かどうか'),
+  })
+  .transform((v) => ({
+    item_name: v.item_name ?? v.name ?? '',
+    price: v.price ?? null,
+    quantity: v.quantity,
+    unit: v.unit,
+    is_food: v.is_food,
+  }));
+
 const receiptResultSchema = z.object({
-  store_name: z.string().nullable().describe('店舗名。レシートから読み取れない場合はnull'),
+  store_name: z.string().nullable().optional().describe('店舗名'),
   items: z.array(receiptItemSchema),
 });
 
@@ -64,25 +80,16 @@ export const parseReceiptTool = createTool({
     }
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64 = Buffer.from(imageBuffer).toString('base64');
-    const mimeType =
-      (imageResponse.headers.get('content-type') as
-        | 'image/jpeg'
-        | 'image/png'
-        | 'image/webp') ?? 'image/jpeg';
+    const mimeType = imageResponse.headers.get('content-type') ?? 'image/jpeg';
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
-    // Gemini 2.0 Flashでレシート解析
-    const { object: receipt } = await generateObject({
-      model: google('gemini-2.0-flash'),
-      schema: receiptResultSchema,
-      messages: [
+    // Zhipu GLM-4.6V-Flash でレシート解析
+    const result = await receiptParserAgent.generate(
+      [
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              image: base64,
-              mimeType,
-            },
+            { type: 'image', image: dataUrl },
             {
               type: 'text',
               text: `このレシート画像から食材リストを抽出してください。
@@ -94,10 +101,23 @@ export const parseReceiptTool = createTool({
           ],
         },
       ],
-    });
+      {
+        structuredOutput: { schema: receiptResultSchema },
+      },
+    );
+
+    const receipt = result.object;
+    if (!receipt) {
+      return {
+        success: false,
+        message: 'レシートの解析結果が取得できませんでした',
+        items: [],
+        inventory_updated: 0,
+      };
+    }
 
     // 食材のみフィルタリング
-    const foodItems = receipt.items.filter((item) => item.is_food);
+    const foodItems = receipt.items.filter((item) => item.is_food && item.item_name);
     const resolvedStoreName = store_name ?? receipt.store_name ?? '不明';
 
     let inventoryUpdated = 0;

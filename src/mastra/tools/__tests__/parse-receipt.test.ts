@@ -4,16 +4,14 @@ import { manageInventoryTool } from '../manage-inventory.js';
 import { setupTestDb, cleanupTestDb } from './setup.js';
 import { db } from '../../db/client.js';
 
-const { mockGenerateObject } = vi.hoisted(() => ({
-  mockGenerateObject: vi.fn(),
+const { mockGenerate } = vi.hoisted(() => ({
+  mockGenerate: vi.fn(),
 }));
 
-vi.mock('ai', () => ({
-  generateObject: mockGenerateObject,
-}));
-
-vi.mock('@ai-sdk/google', () => ({
-  google: vi.fn(() => 'mocked-model'),
+vi.mock('@mastra/core/agent', () => ({
+  Agent: vi.fn(function (this: Record<string, unknown>) {
+    this.generate = mockGenerate;
+  }),
 }));
 
 const execute = parseReceiptTool.execute!;
@@ -43,7 +41,7 @@ function mockReceiptResult(overrides?: {
     is_food: boolean;
   }>;
 }) {
-  mockGenerateObject.mockResolvedValue({
+  mockGenerate.mockResolvedValue({
     object: {
       store_name: overrides?.store_name ?? 'テストスーパー',
       items: overrides?.items ?? [
@@ -80,7 +78,7 @@ describe('parse-receipt', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('取得に失敗');
     expect(result.inventory_updated).toBe(0);
-    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
   });
 
   it('レシートから食材を抽出して在庫に追加できる', async () => {
