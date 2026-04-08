@@ -13,9 +13,24 @@ This is a **Mastra** project written in TypeScript. Mastra is a framework for bu
 ## Commands
 
 ```bash
-npm run dev # Start Mastra Studio at localhost:4111 (long-running, use a separate terminal)
+npm run test  # Run vitest unit tests (src/mastra/**/__tests__/*.test.ts)
+npm run dev   # Start Mastra Studio at localhost:4111 (long-running, use a separate terminal)
 npm run build # Build a production-ready server
+npm run start # Run the built production server
 ```
+
+### Verification workflow (MUST follow after code changes)
+
+Whenever you modify tool, agent, webhook, or util code under `src/mastra/`, you **must** run the relevant verification commands before claiming the task is done. Do not skip.
+
+1. **After any code change touching `src/mastra/`**: run `npm run test` and confirm all tests pass
+2. **After type-affecting changes** (new exports, signature changes, schema edits): additionally run `npx tsc --noEmit` and confirm zero errors in the files you changed (pre-existing errors in unrelated files may be ignored, but mention them)
+3. **After changes to agents/tools/workflows registration**: run `npm run build` to confirm the production build still succeeds
+4. **Before committing**: always re-run `npm run test` so the commit is green
+
+If a test fails, diagnose and fix the root cause — do not comment out tests or skip them. If a test genuinely needs updating due to an intentional behavior change, update it and explain why in the commit message.
+
+If tests don't exist for the code you modified, consider whether adding a test is warranted (see `superpowers:test-driven-development`). At minimum, do a manual smoke test via `npm run dev` for LINE-webhook-related changes.
 
 ## Project Structure
 
