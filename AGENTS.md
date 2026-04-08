@@ -55,6 +55,49 @@ Top-level files define how your Mastra project is configured, built, and connect
 | `package.json`        | Defines project metadata, dependencies, and available npm scripts.                                                |
 | `tsconfig.json`       | Configures TypeScript options such as path aliases, compiler settings, and build output.                          |
 
+## Documentation discipline (MUST keep docs in sync with code)
+
+Code changes without documentation updates create drift. Whenever you ship a change that affects users, configuration, architecture, or decisions, you **must** also update the relevant docs in the same commit (or an immediately following commit).
+
+### When to update `README.md`
+
+Update `README.md` whenever any of the following change:
+
+- Setup steps, required environment variables, or installation commands
+- Commands (`npm run test`, `npm run dev` 等) or their behavior
+- User-facing features (new agents, new tools, new workflows, new LINE 連携)
+- External dependencies (LINE, Mastra のバージョン、DB、API キー 等)
+- Project structure (directory layout, top-level files)
+
+If a PR/commit changes any of the above and README is untouched, **that is a bug**. Fix it before declaring the task complete.
+
+### When to write a document under `docs/`
+
+Create or update files under `docs/` for information that does not belong in code comments or README:
+
+| 種類 | 置き場所 | いつ書く |
+|---|---|---|
+| **設計・アーキテクチャ決定** | `docs/archive/` または `docs/adr/` | 大きな設計判断をした時（なぜその選択をしたかを残す） |
+| **実装プラン** | `docs/superpowers/plans/` | 多段階タスクの着手前（superpowers:writing-plans に従う） |
+| **仕様書** | `docs/superpowers/specs/` | 新機能の要件を固めた時 |
+| **調査ログ・検討ログ** | `docs/research/` | 外部 API 調査、比較検討、第一原理分析などをした時。後のセッションが同じ調査を繰り返さないために残す |
+| **トラブルシューティング記録** | `docs/troubleshooting/` | バグ原因と解決策を掘り下げた時。同じ問題に再遭遇した時の時短になる |
+
+**原則**: ユーザーと議論して得た結論（方針決定、第一原理分析、懸念の共有、却下した代替案とその理由）は、会話が終わった瞬間に揮発します。**重要な議論は `docs/` に要約を残してください**。次のセッションで自分が読み直せる形にすることが目的です。
+
+### Commit 粒度のルール
+
+- コード変更 + ドキュメント更新を **同じコミットにまとめる** のが望ましい（レビュー時に対応関係が明確になる）
+- ただしドキュメント更新が大きい場合は別コミットでも可。その場合は連続した2コミットで行い、PRをバラさない
+- コミットメッセージのタイプは `feat:`, `fix:`, `refactor:` に加えて、純粋なドキュメント更新は `docs:` を使う
+
+### Never do (ドキュメント関連)
+
+- ❌ README に書かれている手順が古くなったまま放置する
+- ❌ 設計判断の「なぜ」を口頭/チャット履歴だけに残す（コードや docs/ に痕跡を残さない）
+- ❌ 「後でドキュメント書く」と言ってタスクを完了扱いにする
+- ❌ 勝手に README をリッチ化する（指示がないのに絵文字・バッジ・長大な説明を追加しない）
+
 ## Boundaries
 
 ### Always do
@@ -63,12 +106,14 @@ Top-level files define how your Mastra project is configured, built, and connect
 - Register new agents, tools, workflows, and scorers in `src/mastra/index.ts`
 - Use schemas for tool inputs and outputs
 - Run `npm run build` to verify changes compile
+- **Update `README.md` and `docs/` when changes affect setup, features, architecture, or decisions** (see "Documentation discipline" section above)
 
 ### Never do
 
 - Never commit `.env` files or secrets
 - Never modify `node_modules` or Mastra's database files directly
 - Never hardcode API keys (always use environment variables)
+- Never ship code changes that invalidate `README.md` without updating it in the same change set
 
 ## Resources
 
