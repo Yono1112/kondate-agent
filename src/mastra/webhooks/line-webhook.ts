@@ -42,26 +42,27 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
 
             try {
               const response = await agent.generate(
-                [{ role: 'user', content: userMessage }],
+                [{ role: 'user', content: `[userId:${userId}] ${userMessage}` }],
                 {
                   threadId: `line-${userId}`,
                   resourceId: userId,
                 },
               );
 
-              const replyText =
-                response.text ?? '申し訳ありません、応答を生成できませんでした。';
+              const replyText = response.text ?? '';
 
-              if (replyToken) {
-                await lineClient.replyMessage({
-                  replyToken,
-                  messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
-                });
-              } else {
-                await lineClient.pushMessage({
-                  to: userId,
-                  messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
-                });
+              if (replyText.trim()) {
+                if (replyToken) {
+                  await lineClient.replyMessage({
+                    replyToken,
+                    messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
+                  });
+                } else {
+                  await lineClient.pushMessage({
+                    to: userId,
+                    messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
+                  });
+                }
               }
             } catch (error) {
               console.error('Agent generation error:', error);
@@ -89,7 +90,7 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
                 [
                   {
                     role: 'user',
-                    content: `レシート画像が送られてきました。parse-receiptツールを使って解析してください。image_url: ${imageUrl}`,
+                    content: `[userId:${userId}] レシート画像が送られてきました。parse-receiptツールを使って解析してください。image_url: ${imageUrl}`,
                   },
                 ],
                 {
@@ -98,18 +99,20 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
                 },
               );
 
-              const replyText = response.text ?? 'レシートを処理しました。';
+              const replyText = response.text ?? '';
 
-              if (replyToken) {
-                await lineClient.replyMessage({
-                  replyToken,
-                  messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
-                });
-              } else {
-                await lineClient.pushMessage({
-                  to: userId,
-                  messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
-                });
+              if (replyText.trim()) {
+                if (replyToken) {
+                  await lineClient.replyMessage({
+                    replyToken,
+                    messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
+                  });
+                } else {
+                  await lineClient.pushMessage({
+                    to: userId,
+                    messages: [{ type: 'text', text: replyText.slice(0, 5000) }],
+                  });
+                }
               }
             } catch (error) {
               console.error('Receipt parsing error:', error);

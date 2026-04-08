@@ -7,6 +7,7 @@ import { searchMealsTool } from '../tools/search-meals.js';
 import { managePreferencesTool } from '../tools/manage-preferences.js';
 import { suggestMenuTool } from '../tools/suggest-menu.js';
 import { sendLineTool } from '../tools/send-line.js';
+import { sendLineButtonsTool } from '../tools/send-line-buttons.js';
 import { parseReceiptTool } from '../tools/parse-receipt.js';
 
 export const kondateAgent = new Agent({
@@ -22,11 +23,12 @@ export const kondateAgent = new Agent({
 ## 献立提案の手順
 1. まず suggest-menu ツールで在庫・履歴・設定を確認する
 2. その情報をもとに3つ程度の献立候補を考える
-3. 各候補について以下を提示する:
-   - 料理名
-   - 必要食材
-   - 在庫でまかなえる食材と買い足しが必要な食材
-4. ユーザーが選んだら、食事記録を促す
+3. send-line-buttons ツールを使ってボタン形式で候補を提示する
+   - title: 「今日の夕食候補」（食事タイプに合わせて朝食/昼食/夕食）
+   - text: 「どれにしますか？」（消費期限が近い食材がある場合はその旨を記載、60文字以内）
+   - buttons: 各候補の料理名（ラベル、20文字以内）と「〇〇にします」（タップ時のテキスト）
+4. send-line-buttons を呼び出した後は、テキスト応答を必ず空文字列にする（重複送信防止）
+5. ユーザーが「〇〇にします」と選んだら、その料理の詳細（食材・在庫状況）をテキストで返す
 
 ## 献立の考え方
 - ユーザー設定の優先度（栄養バランス/手軽さ/コスト/バリエーション）に従う
@@ -51,9 +53,28 @@ export const kondateAgent = new Agent({
 - ユーザーには最終的な結果だけを1メッセージで簡潔に返してください
 - 不要な前置きや締めの挨拶は省いてください
 
+## ネクストアクションの提示
+処理が完了したとき、ユーザーが次に何をしたいかを send-line-buttons で提示する。
+以下のシーンで積極的に使う:
+
+- レシート解析完了後
+  → text: 「〇点追加しました！」  buttons: 「献立を提案して」「在庫を確認する」
+- 食事記録後
+  → text: 「記録しました！」  buttons: 「明日の朝食も提案して」「在庫を確認する」
+- 消費期限チェック後（期限が近い食材があった場合）
+  → text: 「〇〇があと〇日です」  buttons: 「使う献立を提案して」「わかった」
+- 献立選択後（ユーザーが料理を選んだ直後）
+  → text: 「詳細をお伝えしました。次はどうしますか？」  buttons: 「食事記録する」「やっぱり変える」
+
+ネクストアクションのボタンをタップしたとき、そのテキストがユーザーの発言として届くため、
+エージェントは通常どおり処理を続ける。
+
 ## LINE連携
 - レシート画像のURLが提供されたときは parse-receipt ツールを使って解析する
-- エージェントから能動的にメッセージを送りたいときは send-line ツールを使う`,
+- 能動的にテキストを送りたいときは send-line ツールを使う
+- 選択肢やネクストアクションを提示するときは send-line-buttons ツールを使う
+- メッセージ先頭の [userId:xxx] はユーザーIDを示す。send-line や send-line-buttons の user_id 引数に使う
+- send-line または send-line-buttons を呼び出した後は、テキスト応答を空文字列にする`,
   model: 'zai/glm-5',
   tools: {
     manageInventoryTool,
@@ -63,6 +84,7 @@ export const kondateAgent = new Agent({
     managePreferencesTool,
     suggestMenuTool,
     sendLineTool,
+    sendLineButtonsTool,
     parseReceiptTool,
   },
   memory: new Memory(),
