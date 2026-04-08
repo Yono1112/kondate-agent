@@ -116,7 +116,7 @@ describe('line-webhook', () => {
 
     expect(res.status).toBe(200);
     expect(mockGenerate).toHaveBeenCalledWith(
-      [{ role: 'user', content: '今日の夕飯は何がいい？' }],
+      [{ role: 'user', content: '[userId:U_test_user] 今日の夕飯は何がいい？' }],
       expect.objectContaining({ threadId: 'line-U_test_user', resourceId: 'U_test_user' }),
     );
     expect(mockReplyMessage).toHaveBeenCalledWith(
