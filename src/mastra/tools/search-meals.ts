@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { parseMealRow } from '../utils/dbSchemas.js';
 
 export const searchMealsTool = createTool({
   id: 'search-meals',
@@ -56,14 +57,9 @@ export const searchMealsTool = createTool({
       args,
     });
 
-    const meals = result.rows.map((row) => ({
-      id: row.id as string,
-      date: row.date as string,
-      meal_type: row.meal_type as string,
-      dish_name: row.dish_name as string,
-      ingredients: row.ingredients as string,
-      notes: (row.notes as string) ?? null,
-    }));
+    const meals = result.rows.map((row) =>
+      parseMealRow(row as Record<string, unknown>),
+    );
 
     return {
       meals,

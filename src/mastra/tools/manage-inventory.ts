@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { parseInventoryRow } from '../utils/dbSchemas.js';
 
 export const manageInventoryTool = createTool({
   id: 'manage-inventory',
@@ -95,14 +96,9 @@ export const manageInventoryTool = createTool({
     }
 
     const result = await db.execute('SELECT * FROM inventory ORDER BY name');
-    const inventory = result.rows.map((row) => ({
-      id: row.id as string,
-      name: row.name as string,
-      quantity: row.quantity as number,
-      unit: row.unit as string,
-      expiry_date: (row.expiry_date as string) ?? null,
-      purchased_at: (row.purchased_at as string) ?? null,
-    }));
+    const inventory = result.rows.map((row) =>
+      parseInventoryRow(row as Record<string, unknown>),
+    );
 
     const messages: Record<string, string> = {
       add: `${name} を在庫に追加しました`,

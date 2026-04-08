@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { messagingApi } from '@line/bot-sdk';
+import { resolveLinePushCredentials, createLineMessagingClient } from '../utils/lineClient.js';
 
 export const sendLineButtonsTool = createTool({
   id: 'send-line-buttons',
@@ -45,20 +46,10 @@ export const sendLineButtonsTool = createTool({
     message: z.string(),
   }),
   execute: async ({ title, text, buttons, user_id }) => {
-    const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const targetUserId = user_id ?? process.env.LINE_USER_ID;
+    const creds = resolveLinePushCredentials(user_id);
+    if ('error' in creds) return { success: false, message: creds.error };
 
-    if (!channelAccessToken) {
-      return { success: false, message: 'LINE_CHANNEL_ACCESS_TOKEN が設定されていません' };
-    }
-    if (!targetUserId) {
-      return {
-        success: false,
-        message: '送信先ユーザーIDが指定されていません（LINE_USER_ID を設定してください）',
-      };
-    }
-
-    const client = new messagingApi.MessagingApiClient({ channelAccessToken });
+    const client = createLineMessagingClient(creds.channelAccessToken);
 
     const actions: messagingApi.MessageAction[] = buttons.map((btn) => ({
       type: 'message',
@@ -78,7 +69,7 @@ export const sendLineButtonsTool = createTool({
     };
 
     await client.pushMessage({
-      to: targetUserId,
+      to: creds.targetUserId,
       messages: [templateMessage],
     });
 

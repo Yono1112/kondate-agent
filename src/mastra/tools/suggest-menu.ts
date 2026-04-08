@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { calculateDaysRemaining } from '../utils/dateUtils.js';
+import { rowsToPreferenceMap } from '../utils/preferences.js';
 
 export const suggestMenuTool = createTool({
   id: 'suggest-menu',
@@ -50,7 +52,7 @@ export const suggestMenuTool = createTool({
     );
     const inventory = inventoryResult.rows.map((row) => ({
       name: row.name as string,
-      quantity: row.quantity as number,
+      quantity: Number(row.quantity),
       unit: row.unit as string,
       expiry_date: (row.expiry_date as string) ?? null,
     }));
@@ -68,37 +70,27 @@ export const suggestMenuTool = createTool({
     }));
 
     // 消費期限が近い食材（3日以内）
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const expiringResult = await db.execute(
       `SELECT name, quantity, unit, expiry_date FROM inventory
        WHERE expiry_date IS NOT NULL
          AND date(expiry_date) <= date('now', '+3 days')
        ORDER BY expiry_date ASC`,
     );
-    const expiring_soon = expiringResult.rows.map((row) => {
-      const expiryDate = new Date(row.expiry_date as string);
-      expiryDate.setHours(0, 0, 0, 0);
-      const diffMs = expiryDate.getTime() - today.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      return {
-        name: row.name as string,
-        quantity: row.quantity as number,
-        unit: row.unit as string,
-        expiry_date: row.expiry_date as string,
-        days_remaining: daysRemaining,
-      };
-    });
+    const expiring_soon = expiringResult.rows.map((row) => ({
+      name: row.name as string,
+      quantity: Number(row.quantity),
+      unit: row.unit as string,
+      expiry_date: row.expiry_date as string,
+      days_remaining: calculateDaysRemaining(row.expiry_date as string),
+    }));
 
     // ユーザー設定
     const prefsResult = await db.execute(
       'SELECT key, value FROM preferences ORDER BY key',
     );
-    const preferences: Record<string, string> = {};
-    for (const row of prefsResult.rows) {
-      preferences[row.key as string] = row.value as string;
-    }
+    const preferences = rowsToPreferenceMap(
+      prefsResult.rows as Record<string, unknown>[],
+    );
 
     return {
       inventory,

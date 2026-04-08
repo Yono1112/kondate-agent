@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { calculateDaysRemaining } from '../utils/dateUtils.js';
 
 export const checkExpiryTool = createTool({
   id: 'check-expiry',
@@ -35,23 +36,13 @@ export const checkExpiryTool = createTool({
       args: [days],
     });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const items = result.rows.map((row) => {
-      const expiryDate = new Date(row.expiry_date as string);
-      expiryDate.setHours(0, 0, 0, 0);
-      const diffMs = expiryDate.getTime() - today.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-      return {
-        name: row.name as string,
-        quantity: row.quantity as number,
-        unit: row.unit as string,
-        expiry_date: row.expiry_date as string,
-        days_remaining: daysRemaining,
-      };
-    });
+    const items = result.rows.map((row) => ({
+      name: row.name as string,
+      quantity: Number(row.quantity),
+      unit: row.unit as string,
+      expiry_date: row.expiry_date as string,
+      days_remaining: calculateDaysRemaining(row.expiry_date as string),
+    }));
 
     const message =
       items.length === 0

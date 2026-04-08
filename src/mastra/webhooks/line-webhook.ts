@@ -1,15 +1,14 @@
 import { registerApiRoute } from '@mastra/core/server';
-import { validateSignature, webhook, messagingApi } from '@line/bot-sdk';
+import { validateSignature, webhook } from '@line/bot-sdk';
+import { resolveWebhookCredentials, createLineMessagingClient } from '../utils/lineClient.js';
 
 export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
   method: 'POST',
   requiresAuth: false,
   handler: async (c) => {
     try {
-      const channelSecret = process.env.LINE_CHANNEL_SECRET;
-      const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-
-      if (!channelSecret || !channelAccessToken) {
+      const lineCreds = resolveWebhookCredentials();
+      if (!lineCreds) {
         return c.json({ error: 'LINE credentials not configured' }, 500);
       }
 
@@ -17,12 +16,12 @@ export const lineWebhookRoute = registerApiRoute('/webhooks/line', {
       const signature = c.req.header('x-line-signature') ?? '';
       const rawBody = await c.req.text();
 
-      if (!validateSignature(rawBody, channelSecret, signature)) {
+      if (!validateSignature(rawBody, lineCreds.channelSecret, signature)) {
         return c.json({ error: 'Invalid signature' }, 401);
       }
 
       const body = JSON.parse(rawBody) as webhook.WebhookRequestBody;
-      const lineClient = new messagingApi.MessagingApiClient({ channelAccessToken });
+      const lineClient = createLineMessagingClient(lineCreds.channelAccessToken);
       const mastra = c.get('mastra');
       const agent = mastra.getAgent('kondateAgent');
 

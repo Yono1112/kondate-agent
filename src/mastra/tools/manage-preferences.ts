@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { rowsToPreferenceMap } from '../utils/preferences.js';
 
 export const managePreferencesTool = createTool({
   id: 'manage-preferences',
@@ -54,10 +55,9 @@ export const managePreferencesTool = createTool({
       );
     }
 
-    const preferences: Record<string, string> = {};
-    for (const row of result.rows) {
-      preferences[row.key as string] = row.value as string;
-    }
+    const preferences = rowsToPreferenceMap(
+      result.rows as Record<string, unknown>[],
+    );
 
     const message =
       action === 'set'

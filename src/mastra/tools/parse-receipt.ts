@@ -148,7 +148,7 @@ export const parseReceiptTool = createTool({
       });
 
       if (existing.rows.length > 0) {
-        const currentQty = existing.rows[0].quantity as number;
+        const currentQty = Number(existing.rows[0].quantity);
         await db.execute({
           sql: `UPDATE inventory SET quantity = ?, updated_at = datetime('now') WHERE name = ?`,
           args: [currentQty + item.quantity, item.item_name],
