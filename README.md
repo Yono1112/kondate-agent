@@ -19,17 +19,21 @@ Mastra Studio上で動作する自炊アシスタントエージェント。
 
 LINE Messaging APIを通じて、スマホから直接エージェントと対話できる。
 
-- LINEでのテキスト対話（reply API使用 → 月200通制限の対象外）
-- レシート画像送信 → Vision LLM(Zhipu GLM-5V-Turbo)で解析 → 在庫・購入履歴に自動反映
+- LINEでのテキスト対話（reply API使用）
+- **献立提案をボタンテンプレートで提示**（send-line-buttons ツール）。候補をタップして選択できる
+- **レシート画像送信 → 2段階解析**（店舗識別 → 店舗別プロンプト適用）→ 在庫・購入履歴に自動反映
+  - サミット向けに部門コード・ブランド辞書を実装済み
 - send-line ツールによるエージェントからの能動通知（push API）
 - Webhook処理は背景化されており長時間処理でもLINE側のタイムアウトを発生させない
+- 1ターン1メッセージルール（テキスト応答 or ボタン送信の一方のみ）
 
 ### 今後のフェーズ
 
 | フェーズ | 内容 | 状態 |
 |---------|------|------|
 | Phase 3 | YouTuberレシピ取り込み・RAG検索 | 未着手 |
-| Phase 4 | 自律実行・cron・チラシ情報 | 未着手 |
+| Phase 4 | 自律実行・cron・Computer Useによるセール情報取得 | 未着手 |
+| Phase 5 | ネットスーパー連携・Computer Useによる自動発注 | 未着手 |
 
 ## セットアップ
 
@@ -110,14 +114,21 @@ src/mastra/
 │   ├── schema.ts               # テーブル定義 (inventory, meals, preferences, purchases)
 │   └── seed.ts                 # 初期データ投入
 ├── tools/
-│   ├── manage-inventory.ts     # 食材在庫管理 (追加/更新/削除/一覧)
-│   ├── check-expiry.ts         # 消費期限チェック
-│   ├── record-meal.ts          # 食事記録 (在庫自動減算)
-│   ├── search-meals.ts         # 食事履歴検索
-│   ├── manage-preferences.ts   # ユーザー設定管理
-│   ├── suggest-menu.ts         # 献立コンテキスト取得
-│   ├── send-line.ts            # LINE Push API送信
-│   └── parse-receipt.ts        # レシート画像解析 → 在庫/購入履歴更新
+│   ├── manage-inventory.ts       # 食材在庫管理 (追加/更新/削除/一覧)
+│   ├── check-expiry.ts           # 消費期限チェック
+│   ├── record-meal.ts            # 食事記録 (在庫自動減算)
+│   ├── search-meals.ts           # 食事履歴検索
+│   ├── manage-preferences.ts     # ユーザー設定管理
+│   ├── suggest-menu.ts           # 献立コンテキスト取得
+│   ├── send-line.ts              # LINE Push API送信（能動通知用）
+│   ├── send-line-buttons.ts      # LINE Buttons Template送信（献立候補選択UI）
+│   ├── parse-receipt.ts          # レシート画像解析 → 在庫/購入履歴更新
+│   └── receipt-store-prompts.ts  # 店舗別レシート解析プロンプト定義
+├── utils/
+│   ├── dbSchemas.ts            # Zodスキーマ + DBパーサー関数
+│   ├── dateUtils.ts            # 日付計算ユーティリティ
+│   ├── lineClient.ts           # LINE SDKクライアント初期化
+│   └── preferences.ts          # preferences行→オブジェクト変換
 └── webhooks/
     └── line-webhook.ts         # LINE Messaging API Webhook
 ```
@@ -133,7 +144,8 @@ src/mastra/
 | `manage-preferences` | ユーザー設定の取得・更新（優先度・アレルギー等） |
 | `suggest-menu` | 在庫・履歴・設定・期限情報を集約し、エージェントが献立を提案するためのコンテキストを提供 |
 | `send-line` | LINE Push APIでユーザーに能動的にメッセージを送信 |
-| `parse-receipt` | レシート画像をVision LLMで解析し、食材を在庫・購入履歴に自動追加 |
+| `send-line-buttons` | LINE Buttons Templateで選択肢ボタン付きメッセージを送信（献立提案時に使用） |
+| `parse-receipt` | レシート画像を2段階解析（店舗識別→店舗別プロンプト適用）し、食材を在庫・購入履歴に自動追加 |
 
 ## 使い方の例
 
@@ -154,6 +166,7 @@ src/mastra/
 ## コマンド
 
 ```bash
+npm run test    # ユニットテスト実行 (vitest)
 npm run dev     # Mastra Studio起動 (localhost:4111)
 npm run build   # プロダクションビルド
 npm run start   # ビルド済みサーバー起動
