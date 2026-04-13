@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { parseInventoryRow, parseMealRow } from '../utils/dbSchemas.js';
 import { calculateDaysRemaining } from '../utils/dateUtils.js';
 import { rowsToPreferenceMap } from '../utils/preferences.js';
 
@@ -48,41 +49,41 @@ export const suggestMenuTool = createTool({
   execute: async ({ meal_type, additional_request }) => {
     // 在庫取得
     const inventoryResult = await db.execute(
-      'SELECT name, quantity, unit, expiry_date FROM inventory ORDER BY name',
+      'SELECT * FROM inventory ORDER BY name',
     );
-    const inventory = inventoryResult.rows.map((row) => ({
-      name: row.name as string,
-      quantity: Number(row.quantity),
-      unit: row.unit as string,
-      expiry_date: (row.expiry_date as string) ?? null,
-    }));
+    const inventory = inventoryResult.rows.map((row) => {
+      const parsed = parseInventoryRow(row as Record<string, unknown>);
+      return { name: parsed.name, quantity: parsed.quantity, unit: parsed.unit, expiry_date: parsed.expiry_date };
+    });
 
     // 直近7日間の食事履歴
     const mealsResult = await db.execute(
-      `SELECT date, meal_type, dish_name FROM meals
+      `SELECT * FROM meals
        WHERE date >= date('now', '-7 days')
        ORDER BY date DESC, created_at DESC`,
     );
-    const recent_meals = mealsResult.rows.map((row) => ({
-      date: row.date as string,
-      meal_type: row.meal_type as string,
-      dish_name: row.dish_name as string,
-    }));
+    const recent_meals = mealsResult.rows.map((row) => {
+      const parsed = parseMealRow(row as Record<string, unknown>);
+      return { date: parsed.date, meal_type: parsed.meal_type, dish_name: parsed.dish_name };
+    });
 
     // 消費期限が近い食材（3日以内）
     const expiringResult = await db.execute(
-      `SELECT name, quantity, unit, expiry_date FROM inventory
+      `SELECT * FROM inventory
        WHERE expiry_date IS NOT NULL
          AND date(expiry_date) <= date('now', '+3 days')
        ORDER BY expiry_date ASC`,
     );
-    const expiring_soon = expiringResult.rows.map((row) => ({
-      name: row.name as string,
-      quantity: Number(row.quantity),
-      unit: row.unit as string,
-      expiry_date: row.expiry_date as string,
-      days_remaining: calculateDaysRemaining(row.expiry_date as string),
-    }));
+    const expiring_soon = expiringResult.rows.map((row) => {
+      const parsed = parseInventoryRow(row as Record<string, unknown>);
+      return {
+        name: parsed.name,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        expiry_date: parsed.expiry_date ?? '',
+        days_remaining: calculateDaysRemaining(parsed.expiry_date ?? ''),
+      };
+    });
 
     // ユーザー設定
     const prefsResult = await db.execute(
