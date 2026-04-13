@@ -41,5 +41,20 @@ export async function initializeDatabase(): Promise<void> {
       receipt_image_url TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS recipes (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      channel_name TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      video_id TEXT NOT NULL UNIQUE,
+      video_url TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      ingredients TEXT NOT NULL DEFAULT '[]',
+      cook_time_minutes INTEGER,
+      category TEXT,
+      summary TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }

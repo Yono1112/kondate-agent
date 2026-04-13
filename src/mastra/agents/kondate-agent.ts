@@ -9,6 +9,8 @@ import { suggestMenuTool } from '../tools/suggest-menu.js';
 import { sendLineTool } from '../tools/send-line.js';
 import { sendLineButtonsTool } from '../tools/send-line-buttons.js';
 import { parseReceiptTool } from '../tools/parse-receipt.js';
+import { searchRecipesTool } from '../tools/search-recipes.js';
+import { importRecipesTool } from '../tools/import-recipes.js';
 
 export const kondateAgent = new Agent({
   id: 'kondate-agent',
@@ -19,6 +21,13 @@ export const kondateAgent = new Agent({
 - 日本語で応答してください
 - 簡潔でフレンドリーな口調で話してください
 - ユーザーの設定（優先度・家族構成・好み・アレルギー）を manage-preferences ツールで確認して考慮してください
+
+## レシピ検索
+- search-recipes ツールで登録済みレシピを検索できます
+- 献立提案時に在庫の食材名で search-recipes を呼び出し、マッチするレシピがあれば優先的に候補に含めてください
+- レシピが見つかった場合は、概要欄（description）の情報をもとに材料や作り方を案内できます
+- ユーザーが「レシピを探して」「〇〇のレシピある？」と聞いたら search-recipes を使ってください
+- import-recipes はユーザーが「レシピを取り込んで」「〇〇チャンネルのレシピを追加して」と依頼したときに使います
 
 ## 献立提案の手順
 1. まず suggest-menu ツールで在庫・履歴・設定を確認する
@@ -83,6 +92,8 @@ export const kondateAgent = new Agent({
     sendLineTool,
     sendLineButtonsTool,
     parseReceiptTool,
+    searchRecipesTool,
+    importRecipesTool,
   },
   memory: new Memory(),
 });

@@ -11,5 +11,6 @@ export async function cleanupTestDb() {
     DELETE FROM meals;
     DELETE FROM preferences;
     DELETE FROM purchases;
+    DELETE FROM recipes;
   `);
 }
