@@ -3,12 +3,9 @@
 #
 # src/mastra/ または docs/ のファイルが staged されているのに
 # README.md が staged されていない場合に警告を出す。
-# exit 0 なのでブロックはしない（あくまで通知）。
 
-# Claude Code から stdin で JSON が渡される
 INPUT=$(cat)
 
-# コマンドを取り出す
 COMMAND=$(echo "$INPUT" | python3 -c "
 import sys, json
 try:
@@ -42,13 +39,14 @@ if echo "$STAGED" | grep -q "^README.md$"; then
   exit 0
 fi
 
-# 警告を出力（exit 0 なのでコミットはブロックしない）
-echo "⚠️  README.md が commit に含まれていません"
-echo ""
-echo "staged されているトリガーファイル:"
-echo "$TRIGGER_FILES" | sed 's/^/  /'
-echo ""
-echo "AGENTS.md のルール: src/mastra/ や docs/ の変更時は README.md も確認すること。"
-echo "更新不要であればそのまま続けてください。"
+# 警告を JSON systemMessage として出力
+MSG="⚠️ README.md が commit に含まれていません。src/mastra/ や docs/ の変更時は README.md も確認してください。"
+
+cat <<EOF
+{
+  "continue": true,
+  "systemMessage": "$MSG"
+}
+EOF
 
 exit 0
