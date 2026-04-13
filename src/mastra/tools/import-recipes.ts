@@ -2,7 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import { db } from '../db/client.js';
-import { fetchChannelVideos } from '../utils/youtube.js';
+import { fetchChannelVideos, searchChannelVideos } from '../utils/youtube.js';
 
 const recipeExtractorAgent = new Agent({
   id: 'recipe-extractor',
@@ -41,6 +41,16 @@ export const importRecipesTool = createTool({
       .optional()
       .default(50)
       .describe('取得する最大動画数（デフォルト50）'),
+    sort: z
+      .enum(['date', 'viewCount'])
+      .optional()
+      .default('date')
+      .describe('並び順。date=新着順（デフォルト）、viewCount=再生回数順'),
+    offset: z
+      .number()
+      .optional()
+      .default(0)
+      .describe('先頭からスキップする件数（例: 50で51件目から取得）。viewCount 時のみ有効'),
   }),
   outputSchema: z.object({
     success: z.boolean(),
@@ -48,7 +58,7 @@ export const importRecipesTool = createTool({
     imported: z.number(),
     skipped: z.number(),
   }),
-  execute: async ({ channel_id, max_videos }) => {
+  execute: async ({ channel_id, max_videos, sort, offset }) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       return {
@@ -60,9 +70,15 @@ export const importRecipesTool = createTool({
     }
 
     const maxCount = max_videos ?? 50;
+    const sortOrder = sort ?? 'date';
+    const skipCount = offset ?? 0;
     let videos;
     try {
-      videos = await fetchChannelVideos(channel_id, apiKey, maxCount);
+      if (sortOrder === 'viewCount') {
+        videos = await searchChannelVideos(channel_id, apiKey, maxCount, skipCount);
+      } else {
+        videos = await fetchChannelVideos(channel_id, apiKey, maxCount);
+      }
     } catch (error) {
       return {
         success: false,
